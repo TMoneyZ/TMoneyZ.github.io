@@ -25,7 +25,7 @@
         <div class="titleWrapper">
 
             <div class="title">
-                ANAGRAMMATIX
+                はぁっていうゲーム
             </div>
 
             <div class="buttons">
@@ -50,6 +50,12 @@
             <div id="spanNewGameCode" class="gameId">Error!</div>
 
             <div id="playersWaiting"></div>
+            <div id="numPlayerWaiting"></div>
+            
+            <div class="buttons">
+
+                <button id="btnStartGame" class="btn">START</button>
+            </div>
         </div>
     </script>
 
@@ -67,7 +73,7 @@
             </div>
 
             <div class="info buttons">
-                <button id="btnStart" class="btn">Start</button>
+                <button id="btnJoin" class="btn">Join</button>
                 <div id="playerWaitingMessage"></div>
             </div>
         </div>
@@ -77,15 +83,22 @@
     <script id="host-game-template" type="text/template">
         <div id="wordArea">
             <div id="hostWord">5</div>
+            <div id="resultTable"></div>
         </div>
         <div id="playerScores">
-            <div id="player1Score" class="playerScore">
+            <!-- <div id="player1Score" class="playerScore">
                 <span class="score">0</span><span class="playerName">Player 1</span>
             </div>
             <div id="player2Score" class="playerScore">
                 <span class="playerName">Player 2</span><span class="score">0</span>
-            </div>
+            </div> -->
         </div>
+        
+        <div class="bottom">
+            <button id="btnMoveNextRound" class="btn left">Next</button>
+            <button id="btnRevealAnswers" class="btn right">Reveal</button>
+            <div style="clear:both"></div>
+        </div>               
     </script>
 
     <!-- JavaScript Libraries -->

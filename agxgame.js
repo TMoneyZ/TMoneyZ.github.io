@@ -56,25 +56,28 @@ function hostPrepareGame(gameId) {
     };
     //console.log("All Players Present. Preparing game...");
     io.sockets.in(data.gameId).emit('beginNewGame', data);
-}
+};
 
 /*
  * The Countdown has finished, and the game begins!
  * @param gameId The game ID / room ID
  */
-function hostStartGame(gameId) {
+function hostStartGame(gameId, players) {
     console.log('Game Started.');
-    sendWord(0,gameId);
+    sendWord(0, gameId, players);
 };
 
 /**
  * A player answered correctly. Time for the next word.
  * @param data Sent from the client. Contains the current round and gameId (room)
  */
-function hostNextRound(data) {
+function hostNextRound(data, players) {
+    console.log(data.round);
+    console.log(wordPool.length);
+
     if(data.round < wordPool.length ){
         // Send a new set of words back to the host and players.
-        sendWord(data.round, data.gameId);
+        sendWord(data.round, data.gameId, players);
     } else {
         // If the current round exceeds the number of words, send the 'gameOver' event.
         io.sockets.in(data.gameId).emit('gameOver',data);
@@ -87,13 +90,13 @@ function hostNextRound(data) {
    ***************************** */
 
 /**
- * A player clicked the 'START GAME' button.
+ * A player clicked the 'JOIN GAME' button.
  * Attempt to connect them to the room that matches
  * the gameId entered by the player.
  * @param data Contains data entered via player's input - playerName and gameId.
  */
 function playerJoinGame(data) {
-    //console.log('Player ' + data.playerName + 'attempting to join game: ' + data.gameId );
+    console.log('Player ' + data.playerName + 'attempting to join game: ' + data.gameId );
 
     // A reference to the player's Socket.IO socket object
     var sock = this;
@@ -125,7 +128,8 @@ function playerJoinGame(data) {
  * @param data gameId
  */
 function playerAnswer(data) {
-    // console.log('Player ID: ' + data.playerId + ' answered a question with: ' + data.answer);
+    console.log('Player ID: ' + data.playerId + ' answered a question with: ' + data.answer);
+    console.log(data.answer);
 
     // The player's answer is attached to the data object.  \
     // Emit an event with the answer so it can be checked by the 'Host'
@@ -156,8 +160,17 @@ function playerRestart(data) {
  * @param wordPoolIndex
  * @param gameId The room identifier
  */
-function sendWord(wordPoolIndex, gameId) {
-    var data = getWordData(wordPoolIndex);
+function sendWord(wordPoolIndex, gameId, players) {
+    players.forEach(element => { 
+        console.log(element); 
+    });
+    console.log(wordPool[0])
+    console.log(wordPool[0].theme)
+    console.log(wordPool[0].roles)
+
+    // var data = getWordData(wordPoolIndex, players);
+    var data = getThemeData(wordPoolIndex, players);
+    console.log(data)
     io.sockets.in(gameId).emit('newWordData', data);
 }
 
@@ -168,7 +181,48 @@ function sendWord(wordPoolIndex, gameId) {
  * @param i The index of the wordPool.
  * @returns {{round: *, word: *, answer: *, list: Array}}
  */
-function getWordData(i){
+function getThemeData(i, players){
+    console.log(i)
+    console.log(players)
+    console.log(wordPool[i])
+    console.log(wordPool[i].theme)
+
+    
+    var theme = wordPool[i].theme
+    var roles = wordPool[i].roles
+    
+    var bucket = [...Array(roles.length).keys()];
+    var order = {}
+
+    for (var j=0;j<players.length;j++) {
+        randomIndex = Math.floor(Math.random()*bucket.length);
+        // order.push(bucket.splice(randomIndex, 1)[0]);
+        order[players[j].playerName] = bucket.splice(randomIndex, 1)[0]
+    }
+
+    console.log(theme)
+    console.log(bucket)
+    console.log(order)
+
+    // Package the words into a single object.
+    var wordData = {
+        round: i,
+        word : theme,   // Displayed Word
+        answer : order, // Correct Answer
+        list : roles      // Word list for player (decoys and answer)
+    };
+
+    return wordData;
+}
+
+/**
+ * This function does all the work of getting a new words from the pile
+ * and organizing the data to be sent back to the clients.
+ *
+ * @param i The index of the wordPool.
+ * @returns {{round: *, word: *, answer: *, list: Array}}
+ */
+function getWordData(i, players){
     // Randomize the order of the available words.
     // The first element in the randomized array will be displayed on the host screen.
     // The second element will be hidden in a list of decoys as the correct answer
@@ -226,7 +280,258 @@ function shuffle(array) {
  *
  * @type {Array}
  */
+
 var wordPool = [
+    {
+        "theme" : "はぁ",
+        "roles" : [
+            "なんで？の「はぁ」",
+            "力をためる「はぁ」",
+            "ぼうぜんの「はぁ」",
+            "感心の「はぁ」",
+            "怒りの「はぁ」",
+            "とぼけの「はぁ」",
+            "おどろきの「はぁ」",
+            "失恋の「はぁ」"
+        ]
+    },
+    {
+        "theme" : "えー",
+        "roles" : [
+            "アルファベットの「えー」",
+            "膨大な宿題に「えー」",
+            "告白されて「えー」",
+            "聞き取れないときの「えー」",
+            "スピーチの「えー」",
+            "マジで？の「えー」",
+            "半ギレの「えー」",
+            "パニックの「えー」"
+        ]
+    },
+    {
+        "theme" : "うそ",
+        "roles" : [
+            "突然のプレゼント「うそ」",
+            "財布をなくして「うそ」",
+            "相手をバカにした「うそ」",
+            "恋人にいじわるして「うそ」",
+            "衝撃の事実を知って「うそ」",
+            "完全に疑っているときの「うそ」",
+            "ドッキリのネタばらしの「うそ」",
+            "女子高生があいづちに使う「うそ」"
+        ]
+    },
+    {
+        "theme" : "はい",
+        "roles" : [
+            "ノックされたときの「はい」",
+            "聞き返すときの「はい」",
+            "出欠確認のときの「はい」",
+            "やる気のない「はい」",
+            "プレゼントをわたすときの「はい」",
+            "怒られているときの「はい」",
+            "おどろいたときの「はい」",
+            "告白OKのときの「はい」"
+        ]
+    },
+    {
+        "theme" : "やばい",
+        "roles" : [
+            "おいしすぎて「やばい」",
+            "胸キュンの「やばい」",
+            "寝坊したときの「やばい」",
+            "面白すぎて「やばい」",
+            "宝くじがあたって「やばい」",
+            "身の危険を感じて「やばい」",
+            "トイレに行きたくて「やばい」",
+            "ハイテンションなときの「やばい」"
+        ]
+    },
+    {
+        "theme" : "愛してる",
+        "roles" : [
+            "ぶりっこで「愛してる」",
+            "母が子に「愛してる」",
+            "子が母に「愛してる」",
+            "ロックシンガーが「愛してる」",
+            "真剣に「愛してる」",
+            "キュートに「愛してる」",
+            "全人類に「愛してる」",
+            "キザに「愛してる」"
+        ]
+    },
+    {
+        "theme" : "すき",
+        "roles" : [
+            "グッとくる「すき」",
+            "いたずらっぽく「すき」",
+            "さりげない「すき」",
+            "偽りの「すき」",
+            "色っぽい「すき」",
+            "私のこと本当に「すき」",
+            "下心ありの「すき」",
+            "気持ち悪い「すき」"
+        ]
+    },
+    {
+        "theme" : "大丈夫",
+        "roles" : [
+            "安心させるときの「大丈夫」",
+            "心配して「大丈夫」",
+            "そっけない「大丈夫」",
+            "私に任せなさい「大丈夫」",
+            "キザに「大丈夫」",
+            "詐欺師が言う「大丈夫」",
+            "ビックリして「大丈夫」",
+            "大丈夫じゃないときの「大丈夫」"
+        ]
+    },
+    {
+        "theme" : "にゃー",
+        "roles" : [
+            "捨て猫の「にゃー」",
+            "猫に向かって「にゃー」",
+            "甘えた「にゃー」",
+            "リアル猫の「にゃー」",
+            "混乱したときの「にゃー」",
+            "威嚇の「にゃー」",
+            "ねむいときの「にゃー」",
+            "かわいい「にゃー」"
+        ]
+    },
+    {
+        "theme" : "そんな",
+        "roles" : [
+            "値段が高くて「そんな」",
+            "裏切られて「そんな」",
+            "信じられなくて「そんな」",
+            "照れて「そんな」",
+            "自動ドアにはさまれて「そんな」",
+            "追い詰められて「そんな」",
+            "落ちこんで「そんな」",
+            "おどろいて「そんな」"
+        ]
+    },
+    {
+        "theme" : "がんばれ",
+        "roles" : [
+            "見下ろして「がんばれ」",
+            "軽く「がんばれ」",
+            "熱く「がんばれ」",
+            "明るく「がんばれ」",
+            "遠くに向かって「がんばれ」",
+            "怒って「がんばれ」",
+            "色っぽく「がんばれ」",
+            "つらいけど・・・「がんばれ」"
+        ]
+    },
+    {
+        "theme" : "さぁ",
+        "roles" : [
+            "とぼけた「さぁ」",
+            "料理をふるまう「さぁ」",
+            "物語を始まりの「さぁ」",
+            "お客を集めるときの「さぁ」",
+            "冷たく「さぁ」",
+            "実況中継の「さぁ」",
+            "帰るときの「さぁ」",
+            "そよ風の「さぁ」"
+        ]
+    },
+    {
+        "theme" : "笑い声",
+        "roles" : [
+            "大魔王の笑い声",
+            "お嬢様の笑い声",
+            "赤ちゃんの笑い声",
+            "おばあちゃんの笑い声",
+            "気持ち悪い笑い声",
+            "さわやかな笑い声",
+            "人をバカにしてる笑い声",
+            "こらえきれなくなった笑い声"
+        ]
+    },
+    {
+        "theme" : "いやー",
+        "roles" : [
+            "ほめられたときの「いやー」",
+            "考え事をしながら「いやー」",
+            "お願いを断る「いやー」",
+            "おばけを見て「いやー」",
+            "ごまかす「いやー」",
+            "マジでムリ！の「いやー」",
+            "持てる？の「いやー」",
+            "ハッピーニュ「イヤー」"
+        ]
+    },
+    {
+        "theme" : "うわーっ",
+        "roles" : [
+            "体重計に乗って「うわーっ」",
+            "見上げて「うわーっ」",
+            "おどろかそうとして「うわーっ」",
+            "同情して「うわーっ」",
+            "軽蔑して「うわーっ」",
+            "ジェットコースターで「うわーっ」",
+            "ゴキブリを見つけて「うわーっ」",
+            "プレセントを開けて「うわーっ」"
+        ]
+    },
+    {
+        "theme" : "なんで",
+        "roles" : [
+            "手品におどろいて「なんで」",
+            "不機嫌に「なんで」",
+            "自分を責めて「なんで」",
+            "ありえない！の「なんで」",
+            "パニックになって「なんで」",
+            "わがままの「なんで」",
+            "フラれたときの「なんで」",
+            "カレー屋の注文で「ナンで」"
+        ]
+    },
+    {
+        "theme" : "もう",
+        "roles" : [
+            "からかわれて「もう」",
+            "時間がせまって「もう」",
+            "しょうがないなぁ、の「もう」",
+            "イライラして「もう」",
+            "くすぐられて「もう」",
+            "激怒して「もう」",
+            "おおらかな乳牛の「もう」",
+            "攻撃的な闘牛の「もう」"
+        ]
+    },
+    {
+        "theme" : "んー",
+        "roles" : [
+            "フカフカお布団に入っての「んー」",
+            "考えこんで「んー」",
+            "納得の「んー」",
+            "我慢して「んー」",
+            "うんざりして「んー」",
+            "ちょっとちがうな、の「んー」",
+            "しぶしぶ同意の「んー」",
+            "おいしい！の「んー」"
+        ]
+    },
+    {
+        "theme" : "自己紹介([　]に自分の名前)",
+        "roles" : [
+            "ヒーロー風に「[名前]です」",
+            "セクシーに「[名前]です」",
+            "悪役っぽく「[名前]です」",
+            "天才っぽく「[名前]です」",
+            "クールに「[名前]です」",
+            "怪力男で「[名前]です」",
+            "超美型で「[名前]です」",
+            "ふつうに「[名前]です」"
+        ]
+    }
+];
+
+var wordPoolTest = [
     {
         "words"  : [ "sale","seal","ales","leas" ],
         "decoys" : [ "lead","lamp","seed","eels","lean","cels","lyse","sloe","tels","self" ]
@@ -276,4 +581,4 @@ var wordPool = [
         "words"  : [ "stone","tones","steno","onset" ],
         "decoys" : [ "snout","tongs","stent","tense","terns","santo","stony","toons","snort","stint" ]
     }
-]
+];

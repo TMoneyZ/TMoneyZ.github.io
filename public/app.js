@@ -175,10 +175,13 @@ jQuery(function($){
         bindEvents: function () {
             // Host
             App.$doc.on('click', '#btnCreateGame', App.Host.onCreateClick);
+            App.$doc.on('click', '#btnStartGame', App.Host.onHostStartClick);
+            App.$doc.on('click', '#btnMoveNextRound', App.Host.onHostMoveNextRound);
+            App.$doc.on('click', '#btnRevealAnswers', App.Host.onHostRevealAnswers);
 
             // Player
             App.$doc.on('click', '#btnJoinGame', App.Player.onJoinClick);
-            App.$doc.on('click', '#btnStart',App.Player.onPlayerStartClick);
+            App.$doc.on('click', '#btnJoin',App.Player.onPlayerJoinClick);
             App.$doc.on('click', '.btnAnswer',App.Player.onPlayerAnswerClick);
             App.$doc.on('click', '#btnPlayerRestart', App.Player.onPlayerRestart);
         },
@@ -219,6 +222,11 @@ jQuery(function($){
              */
             numPlayersInRoom: 0,
 
+            /** 
+             * Keep track of received answers right now 
+             */
+            currentReceivedAnswer: {},
+
             /**
              * A reference to the correct answer for the current round.
              */
@@ -230,6 +238,15 @@ jQuery(function($){
             onCreateClick: function () {
                 // console.log('Clicked "Create A Game"');
                 IO.socket.emit('hostCreateNewGame');
+            },
+
+            /**
+             * The host has initiated the game
+             * and clicked Start.
+             */
+            onHostStartClick: function() {
+                // Let the server know that two players are present.
+                IO.socket.emit('hostRoomFull', App.gameId);
             },
 
             /**
@@ -270,10 +287,7 @@ jQuery(function($){
                 if ( App.Host.isNewGame ) {
                     App.Host.displayNewGameScreen();
                 }
-                // Update host screen
-                $('#playersWaiting')
-                    .append('<p/>')
-                    .text('Player ' + data.playerName + ' joined the game.');
+
 
                 // Store the new player's data on the Host.
                 App.Host.players.push(data);
@@ -281,13 +295,23 @@ jQuery(function($){
                 // Increment the number of players in the room
                 App.Host.numPlayersInRoom += 1;
 
+                // Update host screen
+                $('#playersWaiting')
+                    .append('<li>Player ' + data.playerName + ' joined the game.</li>')
+                    // .append('<p/>')
+                    // .text('Player ' + data.playerName + ' joined the game.');
+
+                $('#numPlayerWaiting')
+                    .append('<p/>')
+                    .text(App.Host.players.length  + ' players have joined the game.');
+
                 // If two players have joined, start the game!
-                if (App.Host.numPlayersInRoom === 2) {
+                // if (App.Host.numPlayersInRoom === 2) {
                     // console.log('Room is full. Almost ready!');
 
                     // Let the server know that two players are present.
-                    IO.socket.emit('hostRoomFull',App.gameId);
-                }
+                    // IO.socket.emit('hostRoomFull',App.gameId);
+                // }
             },
 
             /**
@@ -301,22 +325,22 @@ jQuery(function($){
 
                 // Begin the on-screen countdown timer
                 var $secondsLeft = $('#hostWord');
-                App.countDown( $secondsLeft, 5, function(){
-                    IO.socket.emit('hostCountdownFinished', App.gameId);
+                App.countDown( $secondsLeft, 0, function(){
+                    IO.socket.emit('hostCountdownFinished', App.gameId, App.Host.players);
                 });
 
                 // Display the players' names on screen
-                $('#player1Score')
-                    .find('.playerName')
-                    .html(App.Host.players[0].playerName);
+                // $('#player1Score')
+                //     .find('.playerName')
+                //     .html(App.Host.players[0].playerName);
 
-                $('#player2Score')
-                    .find('.playerName')
-                    .html(App.Host.players[1].playerName);
+                // $('#player2Score')
+                //     .find('.playerName')
+                //     .html(App.Host.players[1].playerName);
 
                 // Set the Score section on screen to 0 for each player.
-                $('#player1Score').find('.score').attr('id',App.Host.players[0].mySocketId);
-                $('#player2Score').find('.score').attr('id',App.Host.players[1].mySocketId);
+                // $('#player1Score').find('.score').attr('id',App.Host.players[0].mySocketId);
+                // $('#player2Score').find('.score').attr('id',App.Host.players[1].mySocketId);
             },
 
             /**
@@ -328,9 +352,80 @@ jQuery(function($){
                 $('#hostWord').text(data.word);
                 App.doTextFit('#hostWord');
 
+                $('#playerScores').html('');
+                $("#resultTable").html('');
+                $('#btnRevealAnswers').text('Reveal')
+                $('#btnMoveNextRound').text('Waiting...');
+                $('#btnMoveNextRound').prop('disabled', true);
+
                 // Update the data for the current round
+                App.Host.currentReceivedAnswer = {}
                 App.Host.currentCorrectAnswer = data.answer;
                 App.Host.currentRound = data.round;
+            },
+            
+            onHostRevealAnswers : function() {
+                if($('#btnRevealAnswers').text() === 'Hide') {
+                    $('#btnRevealAnswers').text('Reveal')
+                    $('#btnMoveNextRound').text('Waiting...');
+                    $('#btnMoveNextRound').prop('disabled', true);
+                    $("#resultTable").html('');
+
+                } else {
+                    // console.log(App.Host.currentReceivedAnswer)
+                    // console.log(App.Host.currentCorrectAnswer)
+
+                    var html = "<table border='1|1'>";
+                    html+="<tr>"
+                    html+="<th>Name</th>"
+                    for(var i = 0; i < App.Host.players.length; i++) {
+                        html+="<th>"+App.Host.players[i].playerName+"</th>"
+                    }
+                    html+="</tr>"
+
+                    for (var key in App.Host.currentReceivedAnswer) {
+                        html+="<tr>";
+                        html+="<td>"+key+"</td>"; 
+                        for(var j = 0; j < App.Host.players.length; j++) {
+                            var name = App.Host.players[j].playerName
+                            html+="<td>"+App.Host.currentReceivedAnswer[key][name]+"</td>";
+                        }                    
+                        html+="</tr>";                   
+                    }
+
+                    html+="<tr>";
+                    html+="<td>Answer</td>"; 
+                    for(var j = 0; j < App.Host.players.length; j++) {
+                        var name = App.Host.players[j].playerName
+                        html+="<td>"+App.Host.currentCorrectAnswer[name]+"</td>";
+                    }                    
+                    html+="</tr>";
+
+                    $('#btnRevealAnswers').text('Hide')
+                    $('#btnMoveNextRound').text('Next Round');
+                    $('#btnMoveNextRound').prop('disabled', false);
+                    $("#resultTable").html(html);
+                }
+            },
+
+            /**
+             * Process to the next round
+             * @param data{{round: *, playerId: *, answer: *, gameId: *}}
+             */
+            onHostMoveNextRound : function() {
+
+                console.log(App.currentRound);
+                // Advance the round
+                App.currentRound += 1;
+
+                // Prepare data to send to the server
+                var data = {
+                    gameId : App.gameId,
+                    round : App.currentRound
+                }
+                
+                // Notify the server to start the next round.
+                IO.socket.emit('hostNextRound',data, App.Host.players);
             },
 
             /**
@@ -343,30 +438,10 @@ jQuery(function($){
                 // yet updated to the current round.
                 if (data.round === App.currentRound){
 
-                    // Get the player's score
-                    var $pScore = $('#' + data.playerId);
+                    var $pScore = $('#playerScores');
+                    $pScore.append('<li>Player:' + data.playerName + ' Id:' + data.playerId + ' answered</li>')
 
-                    // Advance player's score if it is correct
-                    if( App.Host.currentCorrectAnswer === data.answer ) {
-                        // Add 5 to the player's score
-                        $pScore.text( +$pScore.text() + 5 );
-
-                        // Advance the round
-                        App.currentRound += 1;
-
-                        // Prepare data to send to the server
-                        var data = {
-                            gameId : App.gameId,
-                            round : App.currentRound
-                        }
-
-                        // Notify the server to start the next round.
-                        IO.socket.emit('hostNextRound',data);
-
-                    } else {
-                        // A wrong answer was submitted, so decrement the player's score.
-                        $pScore.text( +$pScore.text() - 3 );
-                    }
+                    App.Host.currentReceivedAnswer[data.playerName] = data.answer
                 }
             },
 
@@ -443,7 +518,7 @@ jQuery(function($){
              * The player entered their name and gameId (hopefully)
              * and clicked Start.
              */
-            onPlayerStartClick: function() {
+            onPlayerJoinClick: function() {
                 // console.log('Player clicked "Start"');
 
                 // collect data to send to the server
@@ -458,6 +533,8 @@ jQuery(function($){
                 // Set the appropriate properties for the current player.
                 App.myRole = 'Player';
                 App.Player.myName = data.playerName;
+
+                $(this).prop('disabled', true);
             },
 
             /**
@@ -465,18 +542,38 @@ jQuery(function($){
              */
             onPlayerAnswerClick: function() {
                 // console.log('Clicked Answer Button');
-                var $btn = $(this);      // the tapped button
-                var answer = $btn.val(); // The tapped word
+                var answer = {}
+
+                var list = App.$gameArea.find('select');
+                // console.log(list)
+
+                for(var i=0;i<list.length;i++) {
+                // list.forEach(function(item, index) {
+                    answer[list[i].id] = list[i].value 
+                };
+                
+                // var $btn = $(this);      // the tapped button
+                // var answer = $btn.val(); // The tapped word
 
                 // Send the player info and tapped word to the server so
                 // the host can check the answer.
                 var data = {
                     gameId: App.gameId,
+                    playerName : App.Player.myName,
                     playerId: App.mySocketId,
                     answer: answer,
                     round: App.currentRound
                 }
                 IO.socket.emit('playerAnswer',data);
+
+
+                // Disable submit button
+                var test = App.$gameArea.find('.submit');
+                // console.log(test)
+
+                App.$gameArea.find('.submit')[0].textContent = 'Waiting ...';
+                App.$gameArea.find('.submit')[0].disabled = true;
+
             },
 
             /**
@@ -523,22 +620,74 @@ jQuery(function($){
              * @param data{{round: *, word: *, answer: *, list: Array}}
              */
             newWord : function(data) {
+            //     console.log(data.answer);
+            //     console.log(data.answer[App.Player.myName]);
+
                 // Create an unordered list element
                 var $list = $('<ul/>').attr('id','ulAnswers');
 
+                $list
+                    .append( $('<li/>')
+                        .append( $('<button/>')      //  <ul> <li> <button> </button> </li> </ul>
+                            .addClass('btnAnswer')   //  <ul> <li> <button class='btnAnswer'> </button> </li> </ul>
+                            .addClass('btn')         //  <ul> <li> <button class='btnAnswer'> </button> </li> </ul>
+                            .val('myRole')               //  <ul> <li> <button class='btnAnswer' value='word'> </button> </li> </ul>
+                            .html('Your role is: ' + data.answer[App.Player.myName])  
+                            .prop('disabled', true)
+                        )
+                    );
+
+                $list
+                    .append( $('<li/>')
+                        .append( $('<button/>')      //  <ul> <li> <button> </button> </li> </ul>
+                            .addClass('btnAnswer')   //  <ul> <li> <button class='btnAnswer'> </button> </li> </ul>
+                            .addClass('btn')         //  <ul> <li> <button class='btnAnswer'> </button> </li> </ul>
+                            .val('theme')               //  <ul> <li> <button class='btnAnswer' value='word'> </button> </li> </ul>
+                            .html('Theme: ' + data.word)  
+                            .prop('disabled', true)
+                        )
+                    );
+
+
                 // Insert a list item for each word in the word list
                 // received from the server.
-                $.each(data.list, function(){
+                $.each(data.list, function(index){
                     $list                                //  <ul> </ul>
                         .append( $('<li/>')              //  <ul> <li> </li> </ul>
                             .append( $('<button/>')      //  <ul> <li> <button> </button> </li> </ul>
                                 .addClass('btnAnswer')   //  <ul> <li> <button class='btnAnswer'> </button> </li> </ul>
                                 .addClass('btn')         //  <ul> <li> <button class='btnAnswer'> </button> </li> </ul>
                                 .val(this)               //  <ul> <li> <button class='btnAnswer' value='word'> </button> </li> </ul>
-                                .html(this)              //  <ul> <li> <button class='btnAnswer' value='word'>word</button> </li> </ul>
+                                .html(index+'. '+this)              //  <ul> <li> <button class='btnAnswer' value='word'>word</button> </li> </ul>
+                                .prop('disabled', true)
                             )
                         )
                 });
+
+                // Insert entry for each player
+
+                $.each(data.answer, function(k, v){
+                    // console.log(k);
+                    // console.log(v);
+                    var $select = $('<select name="'+k+'" id="'+k+'"></select>');
+                    
+                    [...Array(data.list.length).keys()].forEach(function(item, index){
+                        $select.append('<option value='+item+'>'+item+':'+data.list[item]+'</option>');
+                    })
+                    var $form = $("<form></form>")
+                    $form.append( $('<br>'))
+                    $form.append( $('<label for="'+k+'">Choose for '+k+' : </label>'))
+                    $form.append($select)
+                    $list.append( $form);
+                });
+
+                $list
+                    .append($('<br>'))                              //  <ul> </ul>
+                    .append( $('<button/>')      //  <ul> <li> <button> </button> </li> </ul>
+                        .addClass('btnAnswer')   //  <ul> <li> <button class='btnAnswer'> </button> </li> </ul>
+                        .addClass('submit')
+                        .html('Submit')              //  <ul> <li> <button class='btnAnswer' value='word'>word</button> </li> </ul>
+                );
 
                 // Insert the list onto the screen.
                 $('#gameArea').html($list);
