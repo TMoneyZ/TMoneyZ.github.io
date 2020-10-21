@@ -519,22 +519,30 @@ jQuery(function($){
              * and clicked Start.
              */
             onPlayerJoinClick: function() {
-                // console.log('Player clicked "Start"');
 
-                // collect data to send to the server
-                var data = {
-                    gameId : +($('#inputGameId').val()),
-                    playerName : $('#inputPlayerName').val() || 'anon'
-                };
+                if ($('#inputPlayerName').val() ) {
+                    // console.log('Player clicked "Start"');
 
-                // Send the gameId and playerName to the server
-                IO.socket.emit('playerJoinGame', data);
+                    // collect data to send to the server
+                    var data = {
+                        gameId : +($('#inputGameId').val()),
+                        playerName : $('#inputPlayerName').val() || 'anon'
+                    };
 
-                // Set the appropriate properties for the current player.
-                App.myRole = 'Player';
-                App.Player.myName = data.playerName;
+                    // Send the gameId and playerName to the server
+                    IO.socket.emit('playerJoinGame', data);
 
-                $(this).prop('disabled', true);
+                    // Set the appropriate properties for the current player.
+                    App.myRole = 'Player';
+                    App.Player.myName = data.playerName;
+
+                    $(this).text('Waiting...');
+                    $(this).prop('disabled', true);
+                } else {
+                    $('#playerWaitingMessage')
+                        .append('<p/>')
+                        .text('Need a player name');
+                }
             },
 
             /**
@@ -654,14 +662,14 @@ jQuery(function($){
                 $.each(data.list, function(index){
                     $list                                //  <ul> </ul>
                         .append( $('<li/>')              //  <ul> <li> </li> </ul>
-                            .append( $('<button/>')      //  <ul> <li> <button> </button> </li> </ul>
-                                .addClass('btnAnswer')   //  <ul> <li> <button class='btnAnswer'> </button> </li> </ul>
+                            // .append( $('<button/>')      //  <ul> <li> <button> </button> </li> </ul>
+                                .addClass('btnRole')   //  <ul> <li> <button class='btnAnswer'> </button> </li> </ul>
                                 .addClass('btn')         //  <ul> <li> <button class='btnAnswer'> </button> </li> </ul>
-                                .val(this)               //  <ul> <li> <button class='btnAnswer' value='word'> </button> </li> </ul>
+                                // .val(this)               //  <ul> <li> <button class='btnAnswer' value='word'> </button> </li> </ul>
                                 .html(index+'. '+this)              //  <ul> <li> <button class='btnAnswer' value='word'>word</button> </li> </ul>
-                                .prop('disabled', true)
+                                // .prop('disabled', true)
                             )
-                        )
+                        // )
                 });
 
                 // Insert entry for each player
@@ -764,7 +772,7 @@ jQuery(function($){
                     alignVert:false,
                     widthOnly:true,
                     reProcess:true,
-                    maxFontSize:300
+                    maxFontSize:100
                 }
             );
         }
